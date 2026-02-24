@@ -1,0 +1,2 @@
+# logzzy
+fuzzy logviewer
