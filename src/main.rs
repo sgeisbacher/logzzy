@@ -17,13 +17,28 @@ fn main() {
 fn fuzzy_find(line: &str, query_parts: Vec<&str>) -> Vec<usize> {
     let mut indexes = HashSet::new();
     for query in query_parts {
-        if let Some(idx) = line.find(query) {
-            indexes.insert(idx);
-        } else {
-            return vec![];
+        let mut line_rest = line;
+        let mut idx_offset = 0;
+        let needles = split_into_needles(query);
+        for c in needles {
+            if let Some(idx) = line_rest.find(c) {
+                idx_offset += idx;
+                indexes.insert(idx_offset);
+                line_rest = &line_rest[idx..];
+            } else {
+                return vec![];
+            }
         }
     }
     indexes.into_iter().collect()
+}
+
+fn split_into_needles(query: &str) -> Vec<&str> {
+    if let Some(query_strip) = query.strip_prefix("'") {
+        vec![&query_strip]
+    } else {
+        query.split("").collect()
+    }
 }
 
 #[cfg(test)]
@@ -46,12 +61,42 @@ mod tests {
                 vec!["h", "l", "f", "f"],
                 vec![0, 2, 13],
             ),
+            (
+                "one needle not found = no result",
+                "hello world, from europe!",
+                vec!["h", "l", "f", "x"],
+                vec![],
+            ),
+            (
+                "needle-group does forward search",
+                "hello world, from europe!",
+                vec!["hwfe"],
+                vec![0, 6, 13, 18],
+            ),
+            (
+                "needle-group does only forward search",
+                "hello world, from europe!",
+                vec!["hwfel"],
+                vec![],
+            ),
+            (
+                "needle-block (starting with ') is used as whole",
+                "hello world, from europe!",
+                vec!["'world"],
+                vec![6],
+            ),
+            (
+                "needle-block (starting with ') is not splitted into needles for search",
+                "hello world, from europe!",
+                vec!["'word"],
+                vec![],
+            ),
         ];
 
         for (descr, line, needles, expected) in cases {
             let mut result = fuzzy_find(line, needles);
             result.sort_unstable();
-            assert_eq!(result, expected, "failed: {}", descr);
+            assert_eq!(result, expected, "E: {}", descr);
         }
     }
 }
