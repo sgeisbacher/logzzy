@@ -31,8 +31,8 @@ fn fuzzy_find(line: &str, query_parts: Vec<&str>) -> Vec<usize> {
             if let Some(idx) = line_rest.find(c) {
                 idx_offset += idx;
                 indexes.insert(idx_offset);
-                let next_idx = idx + 1; // TODO add len(c)
-                idx_offset += 1; // TODO add len(c)
+                let next_idx = idx + c.len();
+                idx_offset += c.len();
                 line_rest = &line_rest[next_idx..];
             } else {
                 return vec![];
@@ -108,10 +108,22 @@ mod tests {
                 vec![],
             ),
             (
+                "two needle-blocks (starting with ')",
+                "hello world, from europe!",
+                vec!["'ll", "'world"],
+                vec![2, 6],
+            ),
+            (
                 "needle-group with duplicated needle",
                 "hello world, from europe!",
                 vec!["hll"],
                 vec![0, 2, 3],
+            ),
+            (
+                "two overlapping needle-blocks (starting with ') still match",
+                "hello world, from europe!",
+                vec!["'ll", "'lo"],
+                vec![2, 3],
             ),
         ];
 
