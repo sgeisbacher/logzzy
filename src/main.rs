@@ -46,7 +46,7 @@ fn split_into_needles(query: &str) -> Vec<&str> {
     if let Some(query_strip) = query.strip_prefix("'") {
         vec![&query_strip]
     } else {
-        query.split("").collect()
+        query.split("").filter(|c| c.len() == 1).collect()
     }
 }
 
@@ -54,6 +54,13 @@ fn split_into_needles(query: &str) -> Vec<&str> {
 mod tests {
 
     use super::*;
+
+    #[test]
+    fn test_split_into_needles() {
+        let f = split_into_needles;
+        assert_eq!(f("'ll"), vec!["ll"]);
+        assert_eq!(f("hll"), vec!["h", "l", "l"]);
+    }
 
     #[test]
     fn test_fuzzy_find() {
