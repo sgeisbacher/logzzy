@@ -1,7 +1,14 @@
 use std::collections::HashSet;
+use std::env;
+use std::process;
 
 fn main() {
-    let query = "h l f";
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        eprintln!("no query specified");
+        process::exit(1);
+    }
+    let query = &args[1];
     let text = "hello world, from stefan in graz!";
 
     let query_parts = query.split(" ");
