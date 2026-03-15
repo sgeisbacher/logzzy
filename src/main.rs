@@ -31,7 +31,9 @@ fn fuzzy_find(line: &str, query_parts: Vec<&str>) -> Vec<usize> {
             if let Some(idx) = line_rest.find(c) {
                 idx_offset += idx;
                 indexes.insert(idx_offset);
-                line_rest = &line_rest[idx..];
+                let next_idx = idx + 1; // TODO add len(c)
+                idx_offset += 1; // TODO add len(c)
+                line_rest = &line_rest[next_idx..];
             } else {
                 return vec![];
             }
@@ -97,6 +99,12 @@ mod tests {
                 "hello world, from europe!",
                 vec!["'word"],
                 vec![],
+            ),
+            (
+                "needle-group with duplicated needle",
+                "hello world, from europe!",
+                vec!["hll"],
+                vec![0, 2, 3],
             ),
         ];
 
