@@ -3,6 +3,41 @@ use std::collections::HashSet;
 use std::env;
 use std::process;
 
+use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
+
+#[derive(Debug)]
+struct Match {
+    idx: usize,
+    len: usize,
+}
+
+impl Hash for Match {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.idx.hash(state);
+    }
+}
+
+impl PartialEq for Match {
+    fn eq(&self, other: &Self) -> bool {
+        self.idx == other.idx
+    }
+}
+
+impl Eq for Match {}
+
+impl PartialOrd for Match {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Match {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.idx.cmp(&other.idx)
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -14,26 +49,26 @@ fn main() {
 
     let query_parts = query.split(" ");
 
-    let mut idxs = fuzzy_find(text, query_parts.collect());
+    let mut idxs: Vec<Match> = fuzzy_find(text, query_parts.collect());
     idxs.sort();
-    let colored_text = color_matches(text, idxs.clone());
+    let colored_text = color_matches(text, &idxs);
 
-    println!("query {} - {} ++ {:?}", query, colored_text, idxs);
+    println!("query: {}\n{}\n\n{:?}", query, colored_text, idxs);
 }
 
-fn color_matches(line: &str, idxs: Vec<usize>) -> String {
+fn color_matches(line: &str, matches: &[Match]) -> String {
     let mut new_str = String::new();
     let mut prev_idx = 0;
 
-    for idx in idxs {
-        if idx > prev_idx {
-            let chunk = &line[prev_idx..idx];
+    for m in matches {
+        if m.idx > prev_idx {
+            let chunk = &line[prev_idx..m.idx];
             new_str.push_str(chunk);
         }
 
-        let hit_str = &line[idx..idx + 1].green().to_string();
+        let hit_str = &line[m.idx..m.idx + m.len].green().to_string();
         new_str.push_str(hit_str);
-        prev_idx = idx + 1;
+        prev_idx = m.idx + m.len;
     }
 
     new_str.push_str(&line[prev_idx..]);
@@ -41,7 +76,7 @@ fn color_matches(line: &str, idxs: Vec<usize>) -> String {
     new_str
 }
 
-fn fuzzy_find(line: &str, query_parts: Vec<&str>) -> Vec<usize> {
+fn fuzzy_find(line: &str, query_parts: Vec<&str>) -> Vec<Match> {
     let mut indexes = HashSet::new();
     for query in query_parts {
         let mut line_rest = line;
@@ -50,7 +85,10 @@ fn fuzzy_find(line: &str, query_parts: Vec<&str>) -> Vec<usize> {
         for c in needles {
             if let Some(idx) = line_rest.find(c) {
                 idx_offset += idx;
-                indexes.insert(idx_offset);
+                indexes.insert(Match {
+                    idx: idx_offset,
+                    len: c.len(),
+                });
                 let next_idx = idx + c.len();
                 idx_offset += c.len();
                 line_rest = &line_rest[next_idx..];
@@ -89,13 +127,13 @@ mod tests {
                 "simple search",
                 "hello world, from europe!",
                 vec!["h", "l", "f"],
-                vec![0, 2, 13],
+                vec![(0, 1), (2, 1), (13, 1)],
             ),
             (
                 "duplicated needle",
                 "hello world, from europe!",
                 vec!["h", "l", "f", "f"],
-                vec![0, 2, 13],
+                vec![(0, 1), (2, 1), (13, 1)],
             ),
             (
                 "one needle not found = no result",
@@ -107,7 +145,7 @@ mod tests {
                 "needle-group does forward search",
                 "hello world, from europe!",
                 vec!["hwfe"],
-                vec![0, 6, 13, 18],
+                vec![(0, 1), (6, 1), (13, 1), (18, 1)],
             ),
             (
                 "needle-group does only forward search",
@@ -119,7 +157,7 @@ mod tests {
                 "needle-block (starting with ') is used as whole",
                 "hello world, from europe!",
                 vec!["'world"],
-                vec![6],
+                vec![(6, 5)],
             ),
             (
                 "needle-block (starting with ') is not splitted into needles for search",
@@ -131,26 +169,27 @@ mod tests {
                 "two needle-blocks (starting with ')",
                 "hello world, from europe!",
                 vec!["'ll", "'world"],
-                vec![2, 6],
+                vec![(2, 2), (6, 5)],
             ),
             (
                 "needle-group with duplicated needle",
                 "hello world, from europe!",
                 vec!["hll"],
-                vec![0, 2, 3],
+                vec![(0, 1), (2, 1), (3, 1)],
             ),
             (
                 "two overlapping needle-blocks (starting with ') still match",
                 "hello world, from europe!",
                 vec!["'ll", "'lo"],
-                vec![2, 3],
+                vec![(2, 2), (3, 2)],
             ),
         ];
 
         for (descr, line, needles, expected) in cases {
             let mut result = fuzzy_find(line, needles);
             result.sort_unstable();
-            assert_eq!(result, expected, "E: {}", descr);
+            let result2: Vec<(usize, usize)> = result.into_iter().map(|m| (m.idx, m.len)).collect();
+            assert_eq!(result2, expected, "E: {}", descr);
         }
     }
 }
