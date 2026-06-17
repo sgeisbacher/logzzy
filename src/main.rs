@@ -1,3 +1,4 @@
+use colored::Colorize;
 use std::collections::HashSet;
 use std::env;
 use std::process;
@@ -13,12 +14,31 @@ fn main() {
 
     let query_parts = query.split(" ");
 
-    println!(
-        "query {} - {}: {:?}",
-        query,
-        text,
-        fuzzy_find(text, query_parts.collect())
-    );
+    let mut idxs = fuzzy_find(text, query_parts.collect());
+    idxs.sort();
+    let colored_text = color_matches(text, idxs.clone());
+
+    println!("query {} - {} ++ {:?}", query, colored_text, idxs);
+}
+
+fn color_matches(line: &str, idxs: Vec<usize>) -> String {
+    let mut new_str = String::new();
+    let mut prev_idx = 0;
+
+    for idx in idxs {
+        if idx > prev_idx {
+            let chunk = &line[prev_idx..idx];
+            new_str.push_str(chunk);
+        }
+
+        let hit_str = &line[idx..idx + 1].green().to_string();
+        new_str.push_str(hit_str);
+        prev_idx = idx + 1;
+    }
+
+    new_str.push_str(&line[prev_idx..]);
+
+    new_str
 }
 
 fn fuzzy_find(line: &str, query_parts: Vec<&str>) -> Vec<usize> {
