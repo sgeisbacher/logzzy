@@ -1,6 +1,7 @@
 use colored::Colorize;
 use std::collections::HashSet;
 use std::env;
+use std::io::{self, BufRead};
 use std::process;
 
 use std::cmp::Ordering;
@@ -45,15 +46,22 @@ fn main() {
         process::exit(1);
     }
     let query = &args[1];
-    let text = "hello world, from stefan in graz!";
+    println!("query: {}\n", query);
+    let stdin = io::stdin();
 
-    let query_parts = query.split(" ");
+    for line in stdin.lock().lines() {
+        let text = line.unwrap();
+        let query_parts = query.split(" "); // move outside
+        let mut idxs: Vec<Match> = fuzzy_find(&text, query_parts.collect());
+        idxs.sort();
+        if idxs.is_empty() {
+            continue;
+        }
+        let colored_text = color_matches(&text, &idxs);
 
-    let mut idxs: Vec<Match> = fuzzy_find(text, query_parts.collect());
-    idxs.sort();
-    let colored_text = color_matches(text, &idxs);
-
-    println!("query: {}\n{}\n\n{:?}", query, colored_text, idxs);
+        // println!("{}    -> {:?}", colored_text, idxs);
+        println!("{}", colored_text);
+    }
 }
 
 fn color_matches(line: &str, matches: &[Match]) -> String {
